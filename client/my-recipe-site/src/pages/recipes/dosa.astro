@@ -1,0 +1,44 @@
+---
+export const prerender = true;
+import "../../styles/global.css";
+---
+
+<html lang="en">
+  <head>
+    <title>Dosa Recipe</title>
+  </head>
+  <body class="bg-gray-100 text-gray-900">
+    <div class="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg mt-10">
+      <h1 class="text-4xl font-bold text-center text-red-600 mb-4">Dosa Recipe</h1>
+      
+     <img src="/images/dosa.jpg" 
+     alt="Crispy Dosa" 
+     class="w-2/3 max-w-sm mx-auto rounded-lg shadow-md mb-6" />
+
+      <div class="text-center text-gray-600 mb-4">
+        <p><strong>Prep Time:</strong> 10 mins</p>
+        <p><strong>Cook Time:</strong> 20 mins</p>
+      </div>
+
+      <h2 class="text-center font-semibold text-gray-700 mb-2">Ingredients</h2>
+      <ul class="list-disc list-inside text-gray-600 mb-4 space-y-1">
+        <li>1 cup rice</li>
+        <li>½ cup urad dal</li>
+        <li>Salt, to taste</li>
+      </ul>
+
+      <h2 class="text-center font-semibold text-gray-700 mb-2">Instructions</h2>
+      <ol class="list-decimal list-inside text-gray-600 space-y-2">
+        <li>Soak rice and dal for 6 hours.</li>
+        <li>Grind to a smooth batter.</li>
+        <li>Ferment overnight and make crispy dosas!</li>
+      </ol>
+
+      <div class="mt-6 text-center">
+        <a href="/" class="inline-block px-4 py-2 bg-red-500 text-white rounded-lg shadow hover:bg-red-600 transition">
+          Go back to Home
+        </a>
+      </div>
+    </div>
+  </body>
+</html>
