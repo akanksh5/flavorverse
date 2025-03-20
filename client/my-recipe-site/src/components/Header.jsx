@@ -10,7 +10,7 @@ const Header = () => {
         
         {/* Logo / Site Name */}
         <a href="/" className="text-2xl font-bold text-white">
-            Recipe<span className="text-red-500">Hub</span>
+            Flavor<span className="text-red-500">Verse</span>
         </a>
 
         {/* Desktop Navigation */}
