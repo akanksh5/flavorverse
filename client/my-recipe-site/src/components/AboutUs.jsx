@@ -14,7 +14,7 @@ const AboutUs = () => {
         </p>
 
         <p className="text-gray-400 mb-4">
-          Born out of love for food and storytelling, FlavorVerse is more than just a recipe platform — it's a community of food enthusiasts, home cooks, and flavor explorers. Whether you're a seasoned chef or just starting out, our recipes are designed to be approachable and inspiring.
+          Born out of love for food and storytelling, FlavorVerse is more than just a recipe platform - it's a community of food enthusiasts, home cooks, and flavor explorers. Whether you're a seasoned chef or just starting out, our recipes are designed to be approachable and inspiring.
         </p>
 
         <p className="text-gray-400 mb-4">
