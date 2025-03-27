@@ -2,50 +2,74 @@ import React, { useState } from "react";
 import "../styles/global.css";
 
 const Register = () => {
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match!");
-      return;
-    }
+    console.log("🔥 About to send fetch to FastAPI");
+    try {
+      const response = await fetch("http://localhost:8000/register-user", {
+        method: "POST",
+        mode: "cors", 
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          username,
+          password,
+        }),
+      });
 
-    // Placeholder for actual registration logic
-    setSuccess("Registration successful! You can now login.");
-    setError("");
+      console.log("⬅️ Response received", response);
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccess("User registered successfully!");
+        setError("");
+        setEmail("");
+        setUsername("");
+        setPassword("");
+      } else {
+        setError(data.message || "Registration failed");
+        setSuccess("");
+      }
+    } catch (err) {
+      setError("An error occurred. Please try again.");
+      setSuccess("");
+    }
   };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-900">
       <div className="bg-gray-800 p-8 rounded-lg shadow-lg w-full max-w-md">
         <h2 className="text-2xl font-bold text-white text-center mb-6">
-          Create an Account on <span className="text-red-500">FlavorVerse</span>
+          Register to <span className="text-red-500">FlavorVerse</span>
         </h2>
 
         {error && <p className="text-red-400 text-center mb-4">{error}</p>}
         {success && <p className="text-green-400 text-center mb-4">{success}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Name Input */}
+          {/* Username */}
           <div>
-            <label className="text-gray-300 block mb-1">Full Name</label>
+            <label className="text-gray-300 block mb-1">Username</label>
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
               required
             />
           </div>
 
-          {/* Email Input */}
+          {/* Email */}
           <div>
             <label className="text-gray-300 block mb-1">Email</label>
             <input
@@ -57,7 +81,7 @@ const Register = () => {
             />
           </div>
 
-          {/* Password Input */}
+          {/* Password */}
           <div>
             <label className="text-gray-300 block mb-1">Password</label>
             <input
@@ -69,28 +93,18 @@ const Register = () => {
             />
           </div>
 
-          {/* Confirm Password Input */}
-          <div>
-            <label className="text-gray-300 block mb-1">Confirm Password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-4 py-2 rounded-lg bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-red-500"
-              required
-            />
-          </div>
-
-          {/* Register Button */}
+          {/* Submit */}
+          
           <button
             type="submit"
             className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg transition"
           >
             Register
           </button>
+          
         </form>
-
-        {/* Login Link */}
+       
+        {/* Link to Login */}
         <p className="text-gray-400 text-center mt-4">
           Already have an account?{" "}
           <a href="/login" className="text-red-400 hover:text-red-500">
