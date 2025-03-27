@@ -1,63 +1,83 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from pydantic import BaseModel
-from passlib.context import CryptContext
-from jose import JWTError, jwt
-from datetime import datetime, timedelta
+from fastapi import FastAPI, HTTPException, Depends
+from pydantic import BaseModel, EmailStr
+from sqlalchemy import Column, Integer, String, create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
 
-# Secret Key and Algorithm
-SECRET_KEY = "your_secret_key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+from fastapi.middleware.cors import CORSMiddleware
 
+
+
+# --- Database Setup ---
+DATABASE_URL = "sqlite:///./users.db"
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Base = declarative_base()
+
+# --- Models ---
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    password = Column(String, nullable=False)
+
+Base.metadata.create_all(bind=engine)
+
+# --- Pydantic Schema ---
+class RegisterRequest(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: EmailStr
+
+    class Config:
+        orm_mode = True  # Needed to return SQLAlchemy models as JSON
+
+# --- FastAPI App ---
 app = FastAPI()
 
-# Simulated user database
-fake_db = {}
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # or restrict to ["http://localhost:4321"] if needed
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Dependency to get DB session
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-# User and Token Schemas
-class UserCreate(BaseModel):
-    username: str
-    password: str
+# --- Register Endpoint ---
+@app.post("/register-user")
+def register_user(user: RegisterRequest, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.email == user.email).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
 
-class UserLogin(BaseModel):
-    username: str
-    password: str
+    new_user = User(
+        username=user.username,
+        email=user.email,
+        password=user.password  # 🔐 You should hash this in real apps
+    )
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
 
-# Helper function to hash passwords
-def hash_password(password: str):
-    return pwd_context.hash(password)
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-# Helper function to create JWT tokens
-def create_access_token(data: dict, expires_delta: timedelta):
-    to_encode = data.copy()
-    expire = datetime.now(datetime.timezone.utc() + expires_delta
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-
-# Signup Endpoint
-@app.post("/signup/")
-async def signup(user: UserCreate):
-    if user.username in fake_db:
-        raise HTTPException(status_code=400, detail="Username already exists")
-    
-    fake_db[user.username] = {"password": hash_password(user.password)}
     return {"message": "User registered successfully"}
 
-# Login Endpoint
-@app.post("/login/", response_model=Token)
-async def login(user: UserLogin):
-    if user.username not in fake_db or not verify_password(user.password, fake_db[user.username]["password"]):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-
-    access_token = create_access_token(data={"sub": user.username}, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    return {"access_token": access_token, "token_type": "bearer"}
+@app.get("/users", response_model=list[UserResponse])
+def get_users(db: Session = Depends(get_db)):
+    users = db.query(User).all()
+    return users
