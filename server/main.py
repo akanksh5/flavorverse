@@ -3,6 +3,26 @@ from pydantic import BaseModel, EmailStr
 from sqlalchemy import Column, Integer, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
+from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import Cookie
+from pydantic import BaseSettings
+
+class Settings(BaseSettings):
+    DATABASE_URL: str
+    SECRET_KEY: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
+    ALGORITHM: str
+
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
+
+# Replace with a secure, random key in production
+
+
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -38,6 +58,11 @@ class UserResponse(BaseModel):
 
     class Config:
         orm_mode = True  # Needed to return SQLAlchemy models as JSON
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
 
 # --- FastAPI App ---
 app = FastAPI()
@@ -81,3 +106,52 @@ def register_user(user: RegisterRequest, db: Session = Depends(get_db)):
 def get_users(db: Session = Depends(get_db)):
     users = db.query(User).all()
     return users
+
+def create_access_token(data: dict, expires_delta: timedelta = None):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+@app.post("/login")
+def login_user(user: LoginRequest, db: Session = Depends(get_db)):
+    db_user = db.query(User).filter(User.email == user.email).first()
+
+    if not db_user or db_user.password != user.password:
+        return RedirectResponse(url="/login-failed", status_code=302)
+
+    token_data = {"sub": db_user.email}
+    access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+
+    response = RedirectResponse(url="/dashboard", status_code=302)
+    response.set_cookie(    
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        expires=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        samesite="Lax"
+    )
+
+    return response
+
+def get_current_user(token: str = Cookie(None), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(status_code=401, detail="Could not validate credentials")
+
+    if token is None:
+        raise credentials_exception
+
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    user = db.query(User).filter(User.email == email).first()
+    if user is None:
+        raise credentials_exception
+
+    return user
+
