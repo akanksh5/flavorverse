@@ -1,19 +1,36 @@
 import React, { useState } from "react";
+//import { useNavigate } from "react-router-dom"; // Assumes you're using React Router
 import "../styles/global.css";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  //const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setError(""); // Clear any previous error
 
-    // Placeholder for authentication logic
-    if (email === "user@example.com" && password === "password") {
-      alert("Login Successful");
-    } else {
-      setError("Invalid email or password");
+    try {
+      const response = await fetch("http://localhost:8000/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include", // 🔐 Important to include cookies
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (response.redirected && response.url.includes("/dashboard")) {
+        // Simulate redirect on frontend if FastAPI sends redirect
+        window.location.href = "/dashboard";
+      } else {
+        setError("Invalid email or password");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Something went wrong. Please try again.");
     }
   };
 
@@ -27,7 +44,6 @@ const Login = () => {
         {error && <p className="text-red-400 text-center mb-4">{error}</p>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Email Input */}
           <div>
             <label className="text-gray-300 block mb-1">Email</label>
             <input
@@ -39,7 +55,6 @@ const Login = () => {
             />
           </div>
 
-          {/* Password Input */}
           <div>
             <label className="text-gray-300 block mb-1">Password</label>
             <input
@@ -51,7 +66,6 @@ const Login = () => {
             />
           </div>
 
-          {/* Login Button */}
           <button
             type="submit"
             className="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded-lg transition"
@@ -60,7 +74,6 @@ const Login = () => {
           </button>
         </form>
 
-        {/* Register Link */}
         <p className="text-gray-400 text-center mt-4">
           Don't have an account?{" "}
           <a href="/register" className="text-red-400 hover:text-red-500">

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends,Cookie,Query
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import Column, Integer, String, create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -6,26 +6,23 @@ from sqlalchemy.orm import sessionmaker, Session
 from jose import JWTError, jwt
 from datetime import datetime, timedelta
 from fastapi.responses import JSONResponse, RedirectResponse
-from fastapi import Cookie
 from pydantic_settings import BaseSettings
+from fastapi.middleware.cors import CORSMiddleware
+import openai
+import httpx
 
 class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     ALGORITHM: str
+    OPENAI_API_KEY: str
 
     class Config:
         env_file = ".env"
 
 settings = Settings()
-
-# Replace with a secure, random key in production
-
-
-
-from fastapi.middleware.cors import CORSMiddleware
-
+openai.api_key = settings.OPENAI_API_KEY
 
 engine = create_engine(settings.DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
@@ -151,3 +148,32 @@ def get_current_user(token: str = Cookie(None), db: Session = Depends(get_db)):
 
     return user
 
+async def fetch_instructions_from_openai(recipe: str) -> list:
+    prompt = f"Give me a step-by-step list of instructions to cook the Indian recipe '{recipe}'. Only provide the list of steps as bullet points."
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
+                json={
+                    "model": "gpt-4o-mini",
+                    "messages": [{"role": "user", "content": prompt}],
+                }
+            )
+
+            # Extract response text
+            content = response.json()['choices'][0]['message']['content']
+            # Convert bullet points into list
+            instructions = [line.strip("-• ").strip() for line in content.split("\n") if line.strip()]
+            return instructions
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error from OpenAI API: {e}")
+    
+@app.get("/get-instructions")
+async def get_recipe_instructions(recipe: str = Query(..., description="Recipe name to fetch")):
+    instructions = await fetch_instructions_from_openai(recipe)
+    if not instructions:
+        raise HTTPException(status_code=404, detail="No instructions found.")
+    return JSONResponse(content={"recipe": recipe, "instructions": instructions})
