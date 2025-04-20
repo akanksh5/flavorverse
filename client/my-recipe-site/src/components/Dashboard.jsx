@@ -79,9 +79,9 @@ const Dashboard = () => {
           <div className="text-left text-white mt-6">
             <h3 className="text-xl font-semibold mb-2">Instructions:</h3>
             <ul className="list-disc list-inside space-y-1">
-              {instructions.map((step, index) => (
-                <li key={index}>{step}</li>
-              ))}
+            {instructions.map((step, index) => (
+              <li key={index}>{step.replace(/\*\*/g, "")}</li>
+            ))}
             </ul>
           </div>
         )}
