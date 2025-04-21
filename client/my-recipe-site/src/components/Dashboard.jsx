@@ -76,15 +76,23 @@ const Dashboard = () => {
         {error && <p className="text-red-400">{error}</p>}
 
         {instructions.length > 0 && (
-          <div className="text-left text-white mt-6">
-            <h3 className="text-xl font-semibold mb-2">Instructions:</h3>
-            <ul className="list-disc list-inside space-y-1">
-            {instructions.map((step, index) => (
-              <li key={index}>{step.replace(/\*\*/g, "")}</li>
-            ))}
-            </ul>
-          </div>
-        )}
+  <div className="text-left text-white mt-6 animate-fade-in">
+    <h3 className="text-2xl font-bold mb-4 text-center text-indigo-400">
+      🍳 Step-by-Step Instructions
+    </h3>
+    <ol className="space-y-4">
+      {instructions.map((step, index) => (
+        <li
+          key={index}
+          className="bg-gray-700/60 backdrop-blur-lg p-4 rounded-xl shadow-md flex items-start gap-3 border border-indigo-500/30"
+        >
+          <div className="text-indigo-400 font-bold text-lg w-6">{index + 1}.</div>
+          <div className="text-gray-100">{step.replace(/\*\*/g, "")}</div>
+        </li>
+      ))}
+    </ol>
+  </div>
+)}
       </div>
     </div>
   );

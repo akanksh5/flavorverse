@@ -10,6 +10,7 @@ from pydantic_settings import BaseSettings
 from fastapi.middleware.cors import CORSMiddleware
 import openai
 import httpx
+from urllib.parse import unquote
 
 class Settings(BaseSettings):
     DATABASE_URL: str
@@ -173,7 +174,8 @@ async def fetch_instructions_from_openai(recipe: str) -> list:
     
 @app.get("/get-instructions")
 async def get_recipe_instructions(recipe: str = Query(..., description="Recipe name to fetch")):
-    instructions = await fetch_instructions_from_openai(recipe)
+    decoded_recipe = unquote(recipe)
+    instructions = await fetch_instructions_from_openai(decoded_recipe)
     if not instructions:
         raise HTTPException(status_code=404, detail="No instructions found.")
     return JSONResponse(content={"recipe": recipe, "instructions": instructions})
