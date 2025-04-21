@@ -11,7 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import openai
 import httpx
 from urllib.parse import unquote
-
+import textwrap
+import json
+import re
 class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
@@ -149,33 +151,79 @@ def get_current_user(token: str = Cookie(None), db: Session = Depends(get_db)):
 
     return user
 
-async def fetch_instructions_from_openai(recipe: str) -> list:
-    prompt = f"Give me a step-by-step list of instructions to cook the Indian recipe '{recipe}'. Only provide the list of steps as bullet points."
-
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "https://api.openai.com/v1/chat/completions",
-                headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
-                json={
-                    "model": "gpt-4o-mini",
-                    "messages": [{"role": "user", "content": prompt}],
-                }
-            )
-
-            # Extract response text
-            content = response.json()['choices'][0]['message']['content']
-            # Convert bullet points into list
-            instructions = [line.strip("-• ").strip() for line in content.split("\n") if line.strip()]
-            return instructions
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error from OpenAI API: {e}")
-    
 @app.get("/get-instructions")
 async def get_recipe_instructions(recipe: str = Query(..., description="Recipe name to fetch")):
     decoded_recipe = unquote(recipe)
+    print(f"Decoded Recipe: {decoded_recipe}")
     instructions = await fetch_instructions_from_openai(decoded_recipe)
     if not instructions:
         raise HTTPException(status_code=404, detail="No instructions found.")
-    return JSONResponse(content={"recipe": recipe, "instructions": instructions})
+    return JSONResponse(content={"recipe": decoded_recipe, "instructions": instructions})
+
+timeout = httpx.Timeout(30.0, connect=10.0) 
+async def fetch_instructions_from_openai(recipe: str) -> list:
+    prompt = textwrap.dedent(f"""\
+        You are a professional Indian chef.
+
+        Please return the step-by-step cooking instructions for the Indian recipe: "{recipe}".
+
+        Respond with ONLY a JSON array like:
+        ["Step one...", "Step two...", "Step three..."]
+
+        Do not add any text before or after. Only the array.
+    """)
+
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            response = await client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.OPENAI_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": "gpt-4o",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature":0.7
+                }
+            )
+
+        if response.status_code != 200:
+            print("OpenAI Error:", response.text)
+            raise HTTPException(status_code=500, detail="OpenAI API call failed.")
+
+        data = response.json()
+        content = data['choices'][0]['message']['content'].strip()
+        print("🔵 Raw Content:\n", content)
+
+        # Step 1: Strip markdown code block if present
+        cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip(), flags=re.IGNORECASE)
+
+        # Step 2: Try to parse as JSON
+        try:
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, list) and all(isinstance(i, str) for i in parsed):
+                return parsed
+        except json.JSONDecodeError:
+            pass  # Move to fallback
+
+        # Step 3: Fallback — extract lines that look like steps
+        lines = cleaned.splitlines()
+        steps = []
+        for line in lines:
+            match = re.match(r"[-•\d\.\)]\s*(.+)", line.strip())
+            if match:
+                steps.append(match.group(1).strip())
+
+        if steps:
+            return steps
+
+        # Step 4: As a last ditch, return non-empty lines
+        fallback = [line.strip() for line in cleaned.splitlines() if line.strip()]
+        if fallback:
+            return fallback
+
+        raise HTTPException(status_code=500, detail="OpenAI returned an unparseable response.")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error from OpenAI API: {str(e)}")
