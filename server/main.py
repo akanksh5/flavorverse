@@ -119,14 +119,15 @@ def login_user(user: LoginRequest, db: Session = Depends(get_db)):
     token_data = {"sub": db_user.email}
     access_token = create_access_token(data=token_data, expires_delta=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
 
-    response = RedirectResponse(url="/dashboard", status_code=302)
+    response = JSONResponse(content={"message": "Login successful"})
     response.set_cookie(    
         key="access_token",
         value=access_token,
         httponly=True,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        samesite="Lax"
+        samesite="None",  # IMPORTANT
+        secure=True       
     )
 
     return response

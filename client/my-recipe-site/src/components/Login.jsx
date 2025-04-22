@@ -18,15 +18,16 @@ const Login = () => {
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include", // 🔐 Important to include cookies
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
-
-      if (response.redirected && response.url.includes("/dashboard")) {
-        // Simulate redirect on frontend if FastAPI sends redirect
+      
+      if (response.ok) {
+        // ✅ Login worked — cookie is set, now redirect manually
         window.location.href = "/dashboard";
       } else {
-        setError("Invalid email or password");
+        const errorData = await response.json();
+        setError(errorData.detail || "Invalid email or password");
       }
     } catch (err) {
       console.error("Login error:", err);
