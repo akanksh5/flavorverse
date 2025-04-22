@@ -3,6 +3,7 @@ import Header from "../components/Header2.jsx";
 import Hero from "../components/Hero.jsx";
 import Footer from "../components/Footer.jsx";
 import Dashboard from "../components/Dashboard.jsx";
+import AppLayout from "../components/AppLayout.jsx";
 ---
 
 <html lang="en">
@@ -10,7 +11,8 @@ import Dashboard from "../components/Dashboard.jsx";
     <title>Futuristic Recipe Hub</title>
   </head>
   <body class="bg-gray-900 text-white">
-    <Header />
+    <Header client:load/>
+    <main class="pt-20"> <!-- Adjust padding to match header height -->
     <Dashboard client:load/>
     <Footer />
   </body>

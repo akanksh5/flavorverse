@@ -15,16 +15,19 @@ const Login = () => {
     try {
       const response = await fetch("http://localhost:8000/login", {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
-        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
       
       if (response.ok) {
+        setTimeout(() => {
+          window.location.href = "/dashboard";
+        }, 1000);
         // ✅ Login worked — cookie is set, now redirect manually
-        window.location.href = "/dashboard";
+        
       } else {
         const errorData = await response.json();
         setError(errorData.detail || "Invalid email or password");

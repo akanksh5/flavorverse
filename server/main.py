@@ -65,11 +65,12 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # or restrict to ["http://localhost:4321"] if needed
-    allow_credentials=True,
+    allow_origins=["http://localhost:4321"],  # ✅ NOT "*"
+    allow_credentials=True,                   # ✅ needed for cookies
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 
 # Dependency to get DB session
 def get_db():
@@ -126,20 +127,21 @@ def login_user(user: LoginRequest, db: Session = Depends(get_db)):
         httponly=True,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         expires=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        samesite="None",  # IMPORTANT
-        secure=True       
+        samesite="Lax",  # IMPORTANT
+        secure=False       
     )
 
     return response
 
-def get_current_user(token: str = Cookie(None), db: Session = Depends(get_db)):
+def get_current_user(token: str = Cookie(None,alias = "access_token"), db: Session = Depends(get_db)):
+    print(token)
     credentials_exception = HTTPException(status_code=401, detail="Could not validate credentials")
 
     if token is None:
         raise credentials_exception
 
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         email = payload.get("sub")
         if email is None:
             raise credentials_exception
@@ -151,6 +153,10 @@ def get_current_user(token: str = Cookie(None), db: Session = Depends(get_db)):
         raise credentials_exception
 
     return user
+
+@app.get("/me")
+def read_current_user(current_user: User = Depends(get_current_user)):
+    return {"name": current_user.username}
 
 @app.get("/get-instructions")
 async def get_recipe_instructions(recipe: str = Query(..., description="Recipe name to fetch")):
@@ -228,3 +234,10 @@ async def fetch_instructions_from_openai(recipe: str) -> list:
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error from OpenAI API: {str(e)}")
+    
+@app.post("/logout")
+def logout():
+    response = JSONResponse(content={"message": "Logged out"})
+    response.delete_cookie("access_token")
+    return response
+
