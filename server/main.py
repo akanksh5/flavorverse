@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     ALGORITHM: str
     OPENAI_API_KEY: str
+    SLACK_BOT_TOKEN: str
+    CHANNEL_ID: str
+    SLACK_USER_TOKEN: str
+    SLACK_API_URL: str
 
     class Config:
         env_file = ".env"
@@ -165,6 +169,56 @@ async def get_recipe_instructions(recipe: str = Query(..., description="Recipe n
     instructions = await fetch_instructions_from_openai(decoded_recipe)
     if not instructions:
         raise HTTPException(status_code=404, detail="No instructions found.")
+    # ✅ Add nice emojis to steps
+    cooking_emojis = ["🥄", "🍳", "🧂", "🥘", "🔥", "🍽️", "👨‍🍳"]
+    
+    formatted_steps = "\n".join([
+        f"{cooking_emojis[(idx - 1) % len(cooking_emojis)]} *Step {idx}:* {step}"
+        for idx, step in enumerate(instructions, start=1)
+    ])
+
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": f"🍽️ {decoded_recipe} Recipe Instructions",
+                "emoji": True
+            }
+        },
+        {"type": "divider"},
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": formatted_steps
+            }
+        },
+        {"type": "divider"},
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "mrkdwn",
+                    "text": "_👨‍🍳 Powered by FlavorVerse AI — bringing recipes to life!_"
+                }
+            ]
+        }
+    ]
+
+    async with httpx.AsyncClient() as client:
+        await client.post(
+            settings.SLACK_API_URL,
+            headers={
+                "Authorization": f"Bearer {settings.SLACK_BOT_TOKEN}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "channel": "C08NKQ37J5N",  # ✅ Replace if needed
+                "blocks": blocks,
+                "text": f"Recipe Instructions for {decoded_recipe}"  # Fallback text if blocks fail
+            }
+        )
     return JSONResponse(content={"recipe": decoded_recipe, "instructions": instructions})
 
 timeout = httpx.Timeout(30.0, connect=10.0) 
@@ -223,11 +277,35 @@ async def fetch_instructions_from_openai(recipe: str) -> list:
                 steps.append(match.group(1).strip())
 
         if steps:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    settings.SLACK_API_URL,
+                    headers={
+                        "Authorization": f"Bearer {settings.SLACK_BOT_TOKEN}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "channel": "C08NKQ37J5N",
+                        "text": f"👋 Hey!"
+                    }
+                )
             return steps
 
         # Step 4: As a last ditch, return non-empty lines
         fallback = [line.strip() for line in cleaned.splitlines() if line.strip()]
         if fallback:
+            async with httpx.AsyncClient() as client:
+                await client.post(
+                    settings.SLACK_API_URL,
+                    headers={
+                        "Authorization": f"Bearer {settings.SLACK_BOT_TOKEN}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "channel": "C08NKQ37J5N",
+                        "text": f"👋 Hey!"
+                    }
+                )
             return fallback
 
         raise HTTPException(status_code=500, detail="OpenAI returned an unparseable response.")
